@@ -91,7 +91,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 				ESP_LOGI(TAG, "Last esp error code: 0x%x", err);
 				ESP_LOGI(TAG, "Last mbedtls failure: 0x%x", mbedtls_err);
 			}
-			break;
+		break;
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 		case HTTP_EVENT_REDIRECT:
 			ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");

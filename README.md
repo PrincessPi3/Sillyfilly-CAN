@@ -1,3 +1,35 @@
+# Sillyfilly-CAN
+A fork of [esp-idf-can2http](https://github.com/nopnop2002/esp-idf-can2http)
+
+A CAN bus tool built for the esp32. It has a builtin web interface and works with nearly any CAN transceiver like the [N65HVD230](https://www.amazon.com/SN65HVD230-CAN-Board-Communication-Development/dp/B00KM6XMXO/) or the [TJA1050](https://www.amazon.com/Comimark-Transceiver-TJA1050-Controller-Schnittstelle/dp/B07W4VZ2F2/) 
+
+## Hardware needed
+* esp32(-X) (My favorite esp32)[https://www.amazon.com/Espressif-ESP32-S3-DevKitC-1-N32R8V-Development-Board/dp/B09R4GSDJM]
+* CAN transceiver like the [N65HVD230](https://www.amazon.com/SN65HVD230-CAN-Board-Communication-Development/dp/B00KM6XMXO/) or the [TJA1050](https://www.amazon.com/Comimark-Transceiver-TJA1050-Controller-Schnittstelle/dp/B07W4VZ2F2/)
+some jumper wires
+* Jumper wires
+
+## Optional
+* [ODB2 pigtail](https://www.amazon.com/iKKEGOL-Connector-Diagnostic-Extension-Pigtail/dp/B0828YHWFG/)
+
+## Installation
+1) install [esp-idf](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html#installation) if not installed on your computer already
+2) open esp-idf terminal
+3) plug in your esp32 to computer via USB cable
+4) Run these commands:
+```
+git clone https://github.com/PrincessPi3/Sillyfilly-CAN.git
+cd Sillyfilly-CAN
+idf.py set-target esp32s3 # example idf.py set-target <your_esp32_ type>
+idf.py menuconfig
+```
+5) Under "Sillyfilly-CAN Configuration" set your settings like wifi and CRX and CTX pins.
+6) Wire transceiver to the pins: CRX->RX, CTX-TX, GND->GND
+7) run this command
+```idf.py flash monitor # ctrl+] to exit monitor```
+<your_esp32_type> can be one of 'esp32', 'esp32s2', 'esp32c3', 'esp32s3', 'esp32c2', 'esp32c6', 'esp32h2', 'esp32p4', 'esp32c5', 'esp32c61'
+
+# Original README.md
 # esp-idf-can2http
 CANbus to http bridge using esp32.   
 It's purpose is to be a bridge between a CAN-Bus and a HTTP-Server.    

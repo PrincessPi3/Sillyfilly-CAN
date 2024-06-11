@@ -8,6 +8,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 
@@ -23,36 +24,79 @@
 #include "esp_chip_info.h"
 #include "cJSON.h"
 #include "driver/twai.h"
-
 #include "twai.h"
 
-static const char *TAG = "SERVER";
-//static SemaphoreHandle_t ctrl_task_sem;
+#define SCRATCH_BUFSIZE (1024)
+
+#define TAG	"HTTP_SERVER"
+
+int pointer = 0;
+static char *base_path = "/spiffs";  
 
 extern QueueHandle_t xQueue_twai_tx;
-
-#define SCRATCH_BUFSIZE (1024)
+extern char* twai_string_buf;
+extern int twai_allocation_size;
+extern char* file_read_buf;
+extern int allocation_size;
 
 typedef struct rest_server_context {
 	char base_path[ESP_VFS_PATH_MAX + 1]; // Not used in this project
 	char scratch[SCRATCH_BUFSIZE];
 } rest_server_context_t;
 
+esp_err_t readFile(char *ifile) {
+	int c;
+	ESP_LOGI(TAG, "File read llocated memory confirmed!: %d bytes", allocation_size);
+	char *spiffspath = "/spiffs";
+	int buflen = strlen(spiffspath)+strlen(ifile)+1;
+	char buf[buflen];
+	snprintf(buf, sizeof(buf), "%s%s", spiffspath, ifile);
+	ESP_LOGI(TAG, "buflen: %d, spiffspath: %s, ifile: %s, buf: %s, base_path: %s",buflen,spiffspath,ifile,buf,base_path);
+    FILE* f = fopen(buf, "r");
+	ESP_LOGI(TAG, "Begin reading file");
+	int i = 0;
+	while ((c = fgetc(f)) != EOF) {
+		file_read_buf[i] = c;
+		i++;
+	};
+	file_read_buf[i] = '\0';
+	fclose(f);
+	ESP_LOGI(TAG, "Read File - Iterations: %d", i);
+	return ESP_OK;
+}
 
 /* Handler for roor get handler */
-static esp_err_t root_get_handler(httpd_req_t *req)
+esp_err_t root_get_handler(httpd_req_t *req)
 {
 	ESP_LOGI(TAG, "root_get_handler req->uri=[%s]", req->uri);
+	readFile("/index.html");
+	esp_err_t sendcheck = httpd_resp_send(req, file_read_buf, HTTPD_RESP_USE_STRLEN);
+	//httpd_resp_sendstr_chunk(req, NULL);
 
-	/* Send empty chunk to signal HTTP response completion */
-	httpd_resp_sendstr_chunk(req, NULL);
-
+	if(sendcheck == ESP_OK) {
+		//free(file_read_buf);
+		memset(twai_string_buf, '\0', allocation_size);
+		ESP_LOGI(TAG, "malloc freed");
+		return ESP_OK;
+	} else {
+		return ESP_ERR_HTTPD_RESP_SEND;
+	} 
 
 	return ESP_OK;
 }
 
+static esp_err_t twai_read_handler(httpd_req_t *req)
+{
+	httpd_resp_sendstr(req, twai_string_buf);
+	// Buffers returned by cJSON_Print must be freed by the caller.
+	// Please use the proper API (cJSON_free) rather than directly
+	//twai_string_buf = {0};
+	memset(twai_string_buf, '\0', twai_allocation_size);
+	return ESP_OK;
+}
+
 /* Handler for getting system information handler */
-// curl 'http://esp32-server.local:8000/api/system/info' | python -m json.tool
+// curl 'http://esp32-can-server:8000/api/system/info' | python -m json.tool
 static esp_err_t system_info_get_handler(httpd_req_t *req)
 {
 	ESP_LOGI(TAG, "system_info_get_handler req->uri=[%s]", req->uri);
@@ -225,7 +269,7 @@ static esp_err_t twai_send_handler(httpd_req_t *req)
 		if (xQueueSend(xQueue_twai_tx, &tx_msg, portMAX_DELAY) != pdPASS) {
 			ESP_LOGE(TAG, "xQueueSend Fail");
 		}
-		httpd_resp_sendstr(req, "twai send successfully");
+		httpd_resp_sendstr(req, "CAN tx sent successfully");
 	} else {
 		ESP_LOGE(TAG, "Request parameter not correct");
 		httpd_resp_sendstr(req, "Request parameter not correct");
@@ -283,6 +327,15 @@ esp_err_t start_server(const char *base_path, int port)
 		.user_ctx  = rest_context
 	};
 	httpd_register_uri_handler(server, &twai_send_post_uri);
+
+	/* URI handler for send twai */
+	httpd_uri_t twai_read = {
+		.uri       = "/api/twai/read",
+		.method    = HTTP_GET,
+		.handler   = twai_read_handler,
+		//.user_ctx  = rest_context
+	};
+	httpd_register_uri_handler(server, &twai_read);
 
 	return ESP_OK;
 }

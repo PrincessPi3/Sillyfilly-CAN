@@ -1,0 +1,79 @@
+<h1>Sillyfilly CAN Interface</h1>
+<form id="txform">
+    <div class="form-group">
+        <label for="canidi">CAN ID (decimal)</label>
+        <input type="text" name="canidi" class="form-control"  value="257" />
+    </div>
+    <div class="form-group">
+        <label>Frame Type</label><br />
+        <label for="standard">Standard</label>
+            <input type="radio" id="standard" name="frame" value="standard" checked /><br />
+        <label for="extended">Extended</label>
+            <input type="radio" name="frame" id="extended" value="extended" />
+    </div>
+    <div class="form-group">
+        <label for="datai">Standard (decimal seperated by commas)</label>
+            <input type="text" id="datai" name="datai" value="16,17,18" />
+    </div>
+    <input type="button" id="send" value="Send >>" onclick="send_tx()" />
+    <h3>TX</h3>
+    <div id="output">none yet</div>
+    <h3>RX</h3>
+    <div id="frames">none yet</div>
+</form>
+
+<script>
+var clearedtx = 0;
+var clearedrx = 0;
+
+function mapFn(element, index) {
+    return parseInt(element);
+}
+
+function send_tx() {
+    var form = document.getElementById('txform');
+    var datai = document.getElementById('datai').value;
+    var datai_arr = Array.from(datai.split(","), mapFn);
+    var xhr = new XMLHttpRequest();
+    var formData = new FormData(form);
+    //var txHTML = document.getElementById('output');
+    //open the request
+    xhr.open('POST','/api/twai/send');
+    xhr.setRequestHeader("Content-Type", "application/json");
+    //prepare da dataz
+    var obj = Object.fromEntries(formData);
+    //obj["data"] = datai.split(",");
+    obj["data"] = datai_arr;
+    obj["canid"] = parseInt(obj["canidi"]);
+    delete obj.datai;
+    delete obj.canidi;
+    console.log(obj);
+    var JSONstring = JSON.stringify(obj);
+
+    xhr.send(JSONstring);
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == XMLHttpRequest.DONE) {
+            if(clearedtx === 0) { document.getElementById('output').innerHTML=""; clearedtx = 1; }
+            clearedtx = 1;
+            document.getElementById('output').innerHTML += xhr.responseText+": "+JSONstring+"<br>";
+        }
+    }
+
+    return true; 
+}
+
+function update_rx() {
+    var xhr = new XMLHttpRequest();
+    //var rxHTML = document.getElementById('frames');
+    xhr.open('GET','/api/twai/read');
+    xhr.send();
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == XMLHttpRequest.DONE) {
+            if(clearedrx === 0) { document.getElementById('frames').innerHTML=""; clearedrx = 1; }
+            document.getElementById('frames').innerHTML += xhr.responseText;
+        }
+    }
+}
+
+setInterval(update_rx,1500);
+</script>

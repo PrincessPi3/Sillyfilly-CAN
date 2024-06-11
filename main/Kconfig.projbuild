@@ -1,4 +1,4 @@
-menu "Application Configuration"
+menu "Sillyfilly-CAN Configuration"
 
 	config GPIO_RANGE_MAX
 		int
@@ -73,7 +73,7 @@ menu "Application Configuration"
 
 		config ENABLE_PRINT
 			bool "Output the received CAN FRAME to STDOUT"
-			default y
+			default true
 			help
 				Output the received CAN FRAME to STDOUT.
 
@@ -83,13 +83,13 @@ menu "Application Configuration"
 
 		config ESP_WIFI_SSID
 			string "WiFi SSID"
-			default "myssid"
+			default "wifi-name"
 			help
 				SSID (network name) to connect to.
 
 		config ESP_WIFI_PASSWORD
 			string "WiFi Password"
-			default "mypassword"
+			default "wifi-password"
 			help
 				WiFi password (WPA or WPA2) to connect to.
 
@@ -101,7 +101,7 @@ menu "Application Configuration"
 
 		config MDNS_HOSTNAME
 			string "mDNS Hostname"
-			default "esp32-server"
+			default "esp32-can-server"
 			help
 				The mDNS host name used by the ESP32.
 
@@ -138,7 +138,7 @@ menu "Application Configuration"
 
 		config WEB_SERVER
 			string "HTTP Server IP or mDNS"
-			default "http-server.local"
+			default "esp32-can-server"
 			help
 				The host name or IP address of the HTTP server to use.
 

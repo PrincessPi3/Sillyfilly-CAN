@@ -18,8 +18,9 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "driver/twai.h" // Update from V4.2
-
 #include "twai.h"
+#include "cJSON.h"
+//#include "init_malloci.h"
 
 static const char *TAG = "TWAI";
 
@@ -28,6 +29,10 @@ extern QueueHandle_t xQueue_twai_tx;
 
 extern TOPIC_t *publish;
 extern int16_t npublish;
+int str_iterator = 0;
+extern char* twai_string_buf;
+
+//extern esp_err_t init_twai_read_malloc();
 
 void dump_table(TOPIC_t *topics, int16_t ntopic);
 
@@ -35,10 +40,14 @@ void twai_task(void *pvParameters)
 {
 	ESP_LOGI(TAG,"task start");
 	dump_table(publish, npublish);
-
 	twai_message_t rx_msg;
 	twai_message_t tx_msg;
 	FRAME_t frameBuf;
+	char* ftype;
+	//char* fdata = (char*)malloc(32*sizeof(char));
+	//int iterator = 0;
+	char flags[4];
+	char identifier[4];
 	while (1) {
 		esp_err_t ret = twai_receive(&rx_msg, pdMS_TO_TICKS(10));
 		if (ret == ESP_OK) {
@@ -51,22 +60,55 @@ void twai_task(void *pvParameters)
 
 #if CONFIG_ENABLE_PRINT
 			if (ext == STANDARD_FRAME) {
-				printf("Standard ID: 0x%03"PRIx32"     ", rx_msg.identifier);
+				printf("Standard ID: 0x%03"PRIx32, rx_msg.identifier);
 			} else {
 				printf("Extended ID: 0x%08"PRIx32, rx_msg.identifier);
 			}
 			printf(" DLC: %d  Data: ", rx_msg.data_length_code);
 
-			if (rtr == 0) {
-				for (int i = 0; i < rx_msg.data_length_code; i++) {
-					printf("0x%02x ", rx_msg.data[i]);
-				}
-			} else {
-				printf("REMOTE REQUEST FRAME");
-
-			}
 			printf("\n");
 #endif
+// JSON fun fun fun output for da api
+			if (ext == STANDARD_FRAME) {
+				ftype = "STANDARD_FRAME";
+			} else {
+				ftype = "EXTENDED_FRAME";
+			}
+
+			cJSON *twai_root = cJSON_CreateObject();
+			
+			int charslen_each = 6;
+			int data_len_chars = rx_msg.data_length_code*charslen_each;
+			char tmp_buf[charslen_each+2];
+			char fdata[data_len_chars];
+
+			if (rx_msg.data_length_code != 0) {
+				for (int i = 0; i < rx_msg.data_length_code; i++) {
+					snprintf(tmp_buf, charslen_each, "0x%02x ",rx_msg.data[i]);
+					strcat(fdata, tmp_buf);
+				}
+				fdata[strlen(fdata)-1] = '\0';
+				cJSON_AddStringToObject(twai_root, "data", fdata);
+			}
+			snprintf(flags, sizeof(rx_msg.flags), "0x%"PRIx32, rx_msg.flags);
+			snprintf(identifier, sizeof(rx_msg.identifier), "0x%"PRIx32, rx_msg.identifier);
+
+			cJSON_AddStringToObject(twai_root, "type", ftype);
+			cJSON_AddStringToObject(twai_root, "id", identifier);
+			cJSON_AddStringToObject(twai_root, "flags", flags);
+			cJSON_AddNumberToObject(twai_root, "ext", ext);
+			cJSON_AddNumberToObject(twai_root, "rtr", rtr);
+			cJSON_AddNumberToObject(twai_root, "dlc",rx_msg.data_length_code);
+
+			char *string = cJSON_Print(twai_root);
+			char br[] = "<br>\n";
+			
+			strcat(twai_string_buf,string);
+			strcat(twai_string_buf,br);
+
+			cJSON_free(string);
+			cJSON_Delete(twai_root);
+// end json buffer funssss
 
 			for(int index=0;index<npublish;index++) {
 				if (publish[index].frame != ext) continue;

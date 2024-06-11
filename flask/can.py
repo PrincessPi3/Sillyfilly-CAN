@@ -76,5 +76,5 @@ if __name__ == "__main__":
 	print("lines={}".format(args.lines))
 	app.config['lines'] = args.lines
 	#app.run()
-	app.run(host='0.0.0.0', port=args.port, debug=True)
+	app.run(host='127.0.0.1', port=args.port, debug=True)
 

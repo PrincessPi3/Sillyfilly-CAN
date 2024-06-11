@@ -27,9 +27,8 @@
 #include "mdns.h"
 #include "lwip/dns.h"
 #include "driver/twai.h" // Update from V4.2
-
 #include "twai.h"
-
+#include "init_malloci.h"
 #define TAG	"MAIN"
 
 static const twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
@@ -70,12 +69,16 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_FAIL_BIT BIT1
 
 static int s_retry_num = 0;
+static char *base_path = "/spiffs"; 
 
 QueueHandle_t xQueue_http_client;
 QueueHandle_t xQueue_twai_tx;
 
 TOPIC_t *publish;
 int16_t	npublish;
+
+//extern char* twai_string_buf;
+//extern esp_err_t init_twai_read_malloc();
 
 static void event_handler(void* arg, esp_event_base_t event_base,
 								int32_t event_id, void* event_data)
@@ -204,10 +207,9 @@ esp_err_t mountSPIFFS(char * partition_label, char * base_path) {
 	esp_vfs_spiffs_conf_t conf = {
 		.base_path = base_path,
 		.partition_label = partition_label,
-		.max_files = 5,
+		.max_files = 4,
 		.format_if_mount_failed = true
 	};
-
 	// Use settings defined above to initialize and mount SPIFFS filesystem.
 	// Note: esp_vfs_spiffs_register is an all-in-one convenience function.
 	esp_err_t ret = esp_vfs_spiffs_register(&conf);
@@ -241,6 +243,7 @@ esp_err_t mountSPIFFS(char * partition_label, char * base_path) {
 	ESP_LOGI(TAG, "Mount SPIFFS filesystem");
 	return ret;
 }
+
 
 esp_err_t build_table(TOPIC_t **topics, char *file, int16_t *ntopic)
 {
@@ -354,6 +357,35 @@ void dump_table(TOPIC_t *topics, int16_t ntopic)
 
 }
 
+esp_err_t init_file_malloc() {
+    allocation_size = (MAX_FILE_SIZE_KB*1024*sizeof(char));
+    file_read_buf = (char*)malloc(allocation_size);
+
+    if (file_read_buf == NULL) {
+        ESP_LOGE(MALLOCHI_TAG, "File read memory not allocated.");
+        return ESP_FAIL;
+    } else { 
+        ESP_LOGI(MALLOCHI_TAG, "File read malloc succeeded! %d bytes allocated", allocation_size);
+        return ESP_OK;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t init_twai_read_malloc() {
+    twai_allocation_size = (sizeof(char)*1024*MAX_TWAI_SIZE_KB);
+    twai_string_buf = (char*)malloc(twai_allocation_size);
+    
+    if (twai_string_buf == NULL) {
+        ESP_LOGE(MALLOCHI_TAG, "TWAI memory not allocated.");
+        return ESP_FAIL;
+    } else { 
+        ESP_LOGI(MALLOCHI_TAG, "TWAI malloc succeeded! %d bytes allocated", twai_allocation_size);
+        return ESP_OK;
+    }
+    return ESP_OK;
+}
+
 void http_client_task(void *pvParameters);
 void http_server_task(void *pvParameters);
 void twai_task(void *pvParameters);
@@ -371,6 +403,8 @@ void app_main()
 	ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
 	wifi_init_sta();
 	initialise_mdns();
+	init_twai_read_malloc();
+	init_file_malloc();
 
 	// Install and start TWAI driver
 	ESP_LOGI(TAG, "%s",BITRATE);
@@ -385,7 +419,7 @@ void app_main()
 
 	// Mount SPIFFS
 	char *partition_label = "storage";
-	char *base_path = "/spiffs"; 
+	//char *base_path = "/spiffs"; 
 	ret = mountSPIFFS(partition_label, base_path);
 	if (ret != ESP_OK) {
 		ESP_LOGE(TAG, "mountSPIFFS fail");
